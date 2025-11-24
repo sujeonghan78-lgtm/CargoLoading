@@ -399,6 +399,7 @@ with tab1:
             # 상세 결과
             st.divider()
             with st.expander("📊 상세 적재 결과 보기 (클릭하여 펼치기)"):
+                # 요약 테이블
                 summary_data = []
                 for sol in results:
                     summary_data.append({
@@ -408,15 +409,25 @@ with tab1:
                     })
                 st.dataframe(pd.DataFrame(summary_data), use_container_width=True)
                 
-                st.markdown(f"**{best_sol['차종']} 상세 적재 목록**")
-                for v in best_sol['차량목록']:
-                    st.caption(f"🚛 {v.name}")
-                    packed_items_data = []
-                    for item in v.items:
-                        packed_items_data.append({
-                            "No.": item.id,
-                            "품명": item.description[:30] + "..." if len(item.description) > 30 else item.description,
-                            "규격": f"{item.length}x{item.width}x{item.height}",
-                            "회전": "O" if item.rotation_type == 1 else "X"
-                        })
-                    st.dataframe(pd.DataFrame(packed_items_data), use_container_width=True)
+                st.divider()
+                
+                # 상세 결과를 볼 차종 선택
+                detail_options = [res['차종'] for res in results]
+                selected_detail_type = st.selectbox("상세 결과를 볼 차종 선택", options=detail_options)
+                
+                # 선택된 차종의 결과 찾기
+                target_detail_sol = next((res for res in results if res['차종'] == selected_detail_type), None)
+                
+                if target_detail_sol:
+                    st.markdown(f"**{target_detail_sol['차종']} 상세 적재 목록**")
+                    for v in target_detail_sol['차량목록']:
+                        st.caption(f"🚛 {v.name}")
+                        packed_items_data = []
+                        for item in v.items:
+                            packed_items_data.append({
+                                "No.": item.id,
+                                "품명": item.description[:30] + "..." if len(item.description) > 30 else item.description,
+                                "규격": f"{item.length}x{item.width}x{item.height}",
+                                "회전": "O" if item.rotation_type == 1 else "X"
+                            })
+                        st.dataframe(pd.DataFrame(packed_items_data), use_container_width=True)
