@@ -298,7 +298,7 @@ with tab1:
         st.session_state.best_sol = best_solution
 
     # --- 결과 표시 (세션 상태 기반) ---
-    if st.session_state.simulation_results:
+    if st.session_state.simulation_results is not None: # 수정됨: None이 아닐 때만 실행
         results = st.session_state.simulation_results
         best_sol = st.session_state.best_sol
         
@@ -420,14 +420,79 @@ with tab1:
                 
                 if target_detail_sol:
                     st.markdown(f"**{target_detail_sol['차종']} 상세 적재 목록**")
+                    
                     for v in target_detail_sol['차량목록']:
                         st.caption(f"🚛 {v.name}")
-                        packed_items_data = []
-                        for item in v.items:
-                            packed_items_data.append({
-                                "No.": item.id,
-                                "품명": item.description[:30] + "..." if len(item.description) > 30 else item.description,
-                                "규격": f"{item.length}x{item.width}x{item.height}",
-                                "회전": "O" if item.rotation_type == 1 else "X"
-                            })
-                        st.dataframe(pd.DataFrame(packed_items_data), use_container_width=True)
+                        
+                        # 화면 분할 (왼쪽: 표, 오른쪽: 3D)
+                        d_col1, d_col2 = st.columns([1, 1])
+                        
+                        with d_col1:
+                            packed_items_data = []
+                            for item in v.items:
+                                packed_items_data.append({
+                                    "No.": item.id,
+                                    "품명": item.description[:15] + "..." if len(item.description) > 15 else item.description,
+                                    "규격": f"{item.length}x{item.width}x{item.height}",
+                                    "회전": "O" if item.rotation_type == 1 else "X"
+                                })
+                            st.dataframe(pd.DataFrame(packed_items_data), use_container_width=True, height=300)
+                        
+                        with d_col2:
+                            # 작은 3D 뷰 생성
+                            fig = go.Figure()
+                            L, W, H = v.length, v.width, v.height
+                            
+                            # 차량 프레임
+                            vx = [0, L, L, 0, 0, 0, L, L, 0, 0, 0, 0, L, L, L, L]
+                            vy = [0, 0, W, W, 0, 0, 0, W, W, 0, 0, W, W, 0, 0, W]
+                            vz = [0, 0, 0, 0, 0, H, H, H, H, H, 0, 0, 0, 0, H, H]
+                            
+                            fig.add_trace(go.Scatter3d(
+                                x=vx, y=vy, z=vz, mode='lines',
+                                line=dict(color='black', width=2),
+                                hoverinfo='none'
+                            ))
+                            
+                            for item in v.items:
+                                ix, iy, iz = item.position
+                                il, iw, ih = item.get_dimension()
+                                
+                                # Mesh
+                                x = [ix, ix+il, ix+il, ix, ix, ix+il, ix+il, ix]
+                                y = [iy, iy, iy+iw, iy+iw, iy, iy, iy+iw, iy+iw]
+                                z = [iz, iz, iz, iz, iz+ih, iz+ih, iz+ih, iz+ih]
+                                
+                                fig.add_trace(go.Mesh3d(
+                                    x=x, y=y, z=z,
+                                    i=[7, 0, 0, 0, 4, 4, 6, 6, 4, 0, 3, 2],
+                                    j=[3, 4, 1, 2, 5, 6, 5, 2, 0, 1, 6, 3],
+                                    k=[0, 7, 2, 3, 6, 7, 1, 1, 5, 5, 7, 6],
+                                    color=item.color, opacity=0.9, flatshading=True,
+                                    hoverinfo='none'
+                                ))
+                                
+                                # Wireframe
+                                bx = [ix, ix+il, ix+il, ix, ix, ix, ix+il, ix+il, ix, ix, ix, ix, ix+il, ix+il, ix+il, ix+il]
+                                by = [iy, iy, iy+iw, iy+iw, iy, iy, iy, iy+iw, iy+iw, iy, iy, iy+iw, iy+iw, iy, iy, iy+iw]
+                                bz = [iz, iz, iz, iz, iz, iz+ih, iz+ih, iz+ih, iz+ih, iz+ih, iz, iz, iz, iz+ih, iz+ih, iz+ih]
+                                
+                                fig.add_trace(go.Scatter3d(
+                                    x=bx, y=by, z=bz, mode='lines',
+                                    line=dict(color='white', width=1),
+                                    hoverinfo='none'
+                                ))
+                            
+                            fig.update_layout(
+                                scene=dict(
+                                    xaxis=dict(visible=False),
+                                    yaxis=dict(visible=False),
+                                    zaxis=dict(visible=False),
+                                    aspectmode='data'
+                                ),
+                                height=300, margin=dict(l=0, r=0, b=0, t=0),
+                                showlegend=False
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
+                        
+                        st.divider()
